@@ -208,10 +208,42 @@ impl ToTokens for Model {
                 (quote! {}, quote! {}, quote! {})
             };
 
-        let component = if *is_transparent {
+        let component_id = name.to_string();
+        let hydrate_fn_name =
+            Ident::new(&format!("_island_{}", component_id), name.span());
+        /* {
+            let name = name.to_string();
+            quote! {
+                ::leptos::const_format::concatcp!(
+                    #name,
+                    "_",
+                    ::leptos::xxhash_rust::const_xxh64::xxh64(
+                        concat!(
+                            file!(),
+                            ":",
+                            line!(),
+                        )
+                        .as_bytes(),
+                        0,
+                    )
+                )
+            }
+        } */
+
+        let body_expr = if *is_island {
+            quote! {
+                ::leptos::SharedContext::with_hydration(move || {
+                    #body_name(#scope_name, #prop_names)
+                })
+            }
+        } else {
             quote! {
                 #body_name(#scope_name, #prop_names)
             }
+        };
+
+        let component = if *is_transparent {
+            body_expr
         } else {
             quote! {
                 ::leptos::leptos_dom::Component::new(
@@ -219,10 +251,24 @@ impl ToTokens for Model {
                     move |cx| {
                         #tracing_guard_expr
 
-                        #body_name(cx, #prop_names)
+                        #body_expr
                     }
                 )
             }
+        };
+
+        // add island wrapper if island
+        let component = if *is_island {
+            quote! {
+                ::leptos::leptos_dom::html::custom(
+                    cx,
+                    ::leptos::leptos_dom::html::Custom::new("leptos-island"),
+                )
+                .attr("data-component", #component_id)
+                .child(#component)
+            }
+        } else {
+            component
         };
 
         let props_arg = if no_props {
@@ -278,13 +324,22 @@ impl ToTokens for Model {
                 }
             }
         };
-        let binding =
-            if *is_island && cfg!(any(feature = "csr", feature = "hydrate")) {
-                quote! {}
-                //quote! { #[::leptos::wasm_bindgen::prelude::wasm_bindgen] }
-            } else {
-                quote! {}
-            };
+        let binding = if *is_island
+            && cfg!(any(feature = "csr", feature = "hydrate"))
+        {
+            quote! {
+                #[::leptos::wasm_bindgen::prelude::wasm_bindgen]
+                #[allow(non_snake_case)]
+                pub fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
+                    ::leptos::web_sys::console::log_2(&::leptos::wasm_bindgen::JsValue::from_str(&format!("hydrating {}", #component_id)), &el);
+                    ::leptos::mount_to(el, move |cx| {
+                        #name(cx);
+                    })
+                }
+            }
+        } else {
+            quote! {}
+        };
 
         let output = quote! {
             #[doc = #builder_name_doc]
@@ -293,10 +348,12 @@ impl ToTokens for Model {
             #component_fn_prop_docs
             #[derive(::leptos::typed_builder::TypedBuilder)]
             #[builder(doc)]
-            #binding
             #vis struct #props_name #impl_generics #where_clause {
                 #prop_builder_fields
             }
+
+            #[allow(missing_docs)]
+            #binding
 
             impl #impl_generics ::leptos::Props for #props_name #generics #where_clause {
                 type Builder = #props_builder_name #generics;

@@ -165,8 +165,8 @@ pub use leptos_dom::{
         set_interval_with_handle, set_timeout, set_timeout_with_handle,
         window_event_listener, window_event_listener_untyped,
     },
-    html, log, math, mount_to, mount_to_body, nonce, svg, warn, window,
-    Attribute, Class, CollectView, Errors, Fragment, HtmlElement,
+    html, hydrate_islands, log, math, mount_to, mount_to_body, nonce, svg,
+    warn, window, Attribute, Class, CollectView, Errors, Fragment, HtmlElement,
     IntoAttribute, IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef,
     Property, View,
 };
@@ -198,6 +198,9 @@ mod suspense_component;
 pub use suspense_component::*;
 mod text_prop;
 mod transition;
+// used by the component macro to generate islands
+#[doc(hidden)]
+pub use const_format;
 pub use text_prop::TextProp;
 #[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
@@ -210,6 +213,16 @@ pub use transition::*;
     feature = "template_macro"
 ))]
 pub use wasm_bindgen; // used in islands
+#[doc(hidden)]
+#[cfg(any(
+    feature = "csr",
+    feature = "hydrate",
+    feature = "template_macro"
+))]
+pub use web_sys; // used in islands
+// used by the component macro to generate islands
+#[doc(hidden)]
+pub use xxhash_rust;
 extern crate self as leptos;
 
 /// The most common type for the `children` property on components,

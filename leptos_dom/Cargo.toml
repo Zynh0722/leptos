@@ -67,6 +67,7 @@ features = [
   "CustomEvent",
   "DeviceMotionEvent",
   "DeviceOrientationEvent",
+  "DomStringMap",
   "DragEvent",
   "ErrorEvent",
   "Event",
