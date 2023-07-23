@@ -9,6 +9,8 @@ pub struct SharedContext {
     pub resolved_resources: HashMap<ResourceId, String>,
     #[allow(clippy::type_complexity)]
     pub pending_fragments: HashMap<String, FragmentData>,
+    #[cfg(feature = "islands")]
+    pub no_hydrate: bool,
 }
 
 /// Represents its pending `<Suspense/>` fragment.
@@ -67,6 +69,8 @@ impl Default for SharedContext {
                     pending_resources,
                     resolved_resources,
                     pending_fragments: Default::default(),
+                    #[cfg(feature = "islands")]
+                    no_hydrate: true
                 }
             } else {
                 Self {
@@ -74,6 +78,8 @@ impl Default for SharedContext {
                     pending_resources: Default::default(),
                     resolved_resources: Default::default(),
                     pending_fragments: Default::default(),
+                    #[cfg(feature = "islands")]
+                    no_hydrate: true
                 }
             }
         }
