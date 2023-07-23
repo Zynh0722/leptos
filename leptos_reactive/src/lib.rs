@@ -103,7 +103,7 @@ pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
 #[cfg(any(feature = "hydrate", feature = "ssr"))]
-pub use hydration::FragmentData;
+pub use hydration::{FragmentData, SharedContext};
 pub use memo::*;
 pub use resource::*;
 use runtime::*;

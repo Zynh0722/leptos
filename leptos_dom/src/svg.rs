@@ -48,7 +48,7 @@ macro_rules! generate_svg_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           element: web_sys::HtmlElement,
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-          id: HydrationKey,
+          id: Option<HydrationKey>,
         }
 
         impl Default for [<$tag:camel $($second:camel $($third:camel)?)?>] {
@@ -56,7 +56,8 @@ macro_rules! generate_svg_tags {
             let id = HydrationCtx::id();
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            let element = if HydrationCtx::is_hydrating() {
+            let element = if HydrationCtx::is_hydrating() && id.is_some() {
+              let id = id.unwrap();
               if let Some(el) = crate::document().get_element_by_id(
                 &format!("_{id}")
               ) {
@@ -148,7 +149,7 @@ macro_rules! generate_svg_tags {
           }
 
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-          fn hydration_id(&self) -> &HydrationKey {
+          fn hydration_id(&self) -> &Option<HydrationKey> {
             &self.id
           }
 

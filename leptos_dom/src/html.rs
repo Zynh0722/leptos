@@ -6,7 +6,7 @@ cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::events::*;
     use crate::macro_helpers::*;
-    use crate::{mount_child, MountKind};
+    use crate::{mount_child, HydrationKey, MountKind};
     use once_cell::unsync::Lazy as LazyCell;
     use std::cell::Cell;
     use wasm_bindgen::JsCast;
@@ -83,7 +83,7 @@ pub trait ElementDescriptor: ElementDescriptorBounds {
     /// A unique `id` that should be generated for each new instance of
     /// this element, and be consistent for both SSR and CSR.
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    fn hydration_id(&self) -> &HydrationKey;
+    fn hydration_id(&self) -> &Option<HydrationKey>;
 }
 
 /// Trait for converting any type which impl [`AsRef<web_sys::Element>`]
@@ -135,7 +135,7 @@ pub struct AnyElement {
     pub(crate) element: web_sys::HtmlElement,
     pub(crate) is_void: bool,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl std::ops::Deref for AnyElement {
@@ -174,7 +174,7 @@ impl ElementDescriptor for AnyElement {
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     #[inline(always)]
-    fn hydration_id(&self) -> &HydrationKey {
+    fn hydration_id(&self) -> &Option<HydrationKey> {
         &self.id
     }
 }
@@ -186,7 +186,7 @@ pub struct Custom {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     element: web_sys::HtmlElement,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    id: HydrationKey,
+    id: Option<HydrationKey>,
 }
 
 impl Custom {
@@ -196,7 +196,8 @@ impl Custom {
         let id = HydrationCtx::id();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        let element = if HydrationCtx::is_hydrating() {
+        let element = if HydrationCtx::is_hydrating() && id.is_some() {
+            let id = id.unwrap();
             if let Some(el) =
                 crate::document().get_element_by_id(&format!("_{id}"))
             {
@@ -231,7 +232,7 @@ impl Custom {
                 if !is_meta_tag() {
                     crate::warn!(
                         "element with id {id} not found, ignoring it for \
-                         hydration"
+                         hydration",
                     );
                 }
 
@@ -276,7 +277,7 @@ impl ElementDescriptor for Custom {
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     #[inline(always)]
-    fn hydration_id(&self) -> &HydrationKey {
+    fn hydration_id(&self) -> &Option<HydrationKey> {
         &self.id
     }
 }
@@ -1075,10 +1076,12 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
             let mut element = Element::new(element);
             let children = children;
 
-            if attrs.iter_mut().any(|(name, _)| name == "id") {
-                attrs.push(("leptos-hk".into(), format!("_{id}").into()));
-            } else {
-                attrs.push(("id".into(), format!("_{id}").into()));
+            if let Some(id) = id {
+                if attrs.iter_mut().any(|(name, _)| name == "id") {
+                    attrs.push(("leptos-hk".into(), format!("_{id}").into()));
+                } else {
+                    attrs.push(("id".into(), format!("_{id}").into()));
+                }
             }
 
             element.attrs = attrs;
@@ -1149,12 +1152,13 @@ macro_rules! generate_html_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           element: web_sys::HtmlElement,
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-          id: HydrationKey,
+          id: Option<HydrationKey>,
         }
 
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
             let id = HydrationCtx::id();
+            eprintln!("id = {id:?}");
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             let element = create_leptos_element(
@@ -1214,7 +1218,7 @@ macro_rules! generate_html_tags {
 
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
           #[inline(always)]
-          fn hydration_id(&self) -> &HydrationKey {
+          fn hydration_id(&self) -> &Option<HydrationKey> {
             &self.id
           }
 
@@ -1251,7 +1255,7 @@ macro_rules! generate_html_tags {
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn create_leptos_element(
     tag: &str,
-    id: crate::HydrationKey,
+    id: Option<HydrationKey>,
     clone_element: fn() -> web_sys::HtmlElement,
 ) -> web_sys::HtmlElement {
     #[cfg(not(debug_assertions))]
@@ -1259,7 +1263,8 @@ fn create_leptos_element(
         _ = tag;
     }
 
-    if HydrationCtx::is_hydrating() {
+    if HydrationCtx::is_hydrating() && id.is_some() {
+        let id = id.unwrap();
         if let Some(el) = crate::document().get_element_by_id(&format!("_{id}"))
         {
             #[cfg(debug_assertions)]

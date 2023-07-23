@@ -1,5 +1,8 @@
-#[cfg(feature = "islands")]
-use std::cell::Cell;
+#[cfg(all(
+    feature = "islands",
+    any(feature = "hydrate", feature = "ssr")
+))]
+use leptos_reactive::SharedContext;
 use std::{cell::RefCell, fmt::Display};
 
 #[cfg(all(target_arch = "wasm32", feature = "hydrate"))]
@@ -70,7 +73,7 @@ mod hydration {
 pub(crate) use hydration::*;
 
 /// A stable identifier within the server-rendering or hydration process.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HydrationKey {
     /// ID of the current key.
     pub id: usize,
@@ -84,24 +87,53 @@ impl Display for HydrationKey {
     }
 }
 
-thread_local!(static ID: RefCell<HydrationKey> = Default::default());
+thread_local!(static ID: RefCell<HydrationKey> = RefCell::new(HydrationKey { id: 0, fragment: 0 }));
 
 /// Control and utility methods for hydration.
 pub struct HydrationCtx;
 
 impl HydrationCtx {
     /// Get the next `id` without incrementing it.
-    pub fn peek() -> HydrationKey {
-        ID.with(|id| *id.borrow())
+    pub fn peek() -> Option<HydrationKey> {
+        #[cfg(all(
+            feature = "islands",
+            any(feature = "hydrate", feature = "ssr")
+        ))]
+        let no_hydrate = SharedContext::no_hydrate();
+        #[cfg(not(all(
+            feature = "islands",
+            any(feature = "hydrate", feature = "ssr")
+        )))]
+        let no_hydrate = false;
+        if no_hydrate {
+            None
+        } else {
+            Some(ID.with(|id| *id.borrow()))
+        }
     }
 
     /// Increments the current hydration `id` and returns it
-    pub fn id() -> HydrationKey {
-        ID.with(|id| {
-            let mut id = id.borrow_mut();
-            id.id = id.id.wrapping_add(1);
-            *id
-        })
+    pub fn id() -> Option<HydrationKey> {
+        #[cfg(all(
+            feature = "islands",
+            any(feature = "hydrate", feature = "ssr")
+        ))]
+        let no_hydrate = SharedContext::no_hydrate();
+        #[cfg(not(all(
+            feature = "islands",
+            any(feature = "hydrate", feature = "ssr")
+        )))]
+        let no_hydrate = false;
+
+        if no_hydrate {
+            None
+        } else {
+            Some(ID.with(|id| {
+                let mut id = id.borrow_mut();
+                id.id = id.id.wrapping_add(1);
+                *id
+            }))
+        }
     }
 
     /// Resets the hydration `id` for the next component, and returns it
@@ -117,7 +149,7 @@ impl HydrationCtx {
     #[doc(hidden)]
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub fn reset_id() {
-        ID.with(|id| *id.borrow_mut() = Default::default());
+        ID.with(|id| *id.borrow_mut() = HydrationKey { fragment: 0, id: 0 });
     }
 
     /// Resumes hydration from the provided `id`. Useful for
@@ -148,7 +180,7 @@ impl HydrationCtx {
         }
     }
 
-    #[allow(dead_code)] // not used in CSR
+    #[cfg(feature = "hydrate")]
     pub(crate) fn to_string(id: &HydrationKey, closing: bool) -> String {
         #[cfg(debug_assertions)]
         return format!("_{id}{}", if closing { 'c' } else { 'o' });
@@ -159,23 +191,5 @@ impl HydrationCtx {
 
             format!("_{id}")
         }
-    }
-}
-
-#[cfg(feature = "islands")]
-thread_local! {
-  pub static IN_ISLAND: Cell<bool> = Cell::new(false);
-}
-
-#[cfg(feature = "islands")]
-impl HydrationCtx {
-    /// Whether the renderer is currently inside an interactive island.
-    pub fn in_island() -> bool {
-        IN_ISLAND.with(Cell::get)
-    }
-
-    /// Sets whether the renderer is currently inside an interactive island.
-    pub fn set_island() -> bool {
-        IN_ISLAND.with(Cell::get)
     }
 }

@@ -463,19 +463,19 @@ fn element_to_tokens_ssr(
         } else {
             quote! { leptos::leptos_dom::HydrationCtx::id() }
         };
+        template.push_str("{}");
         match node
             .attributes()
             .iter()
             .find(|node| matches!(node, NodeAttribute::Attribute(attr) if attr.key.to_string() == "id"))
         {
             Some(_) => {
-                template.push_str(" leptos-hk=\"_{}\"");
+                holes.push(quote! { #hydration_id.map(|id| format!(" leptos-hk=\"_{id}\"")).unwrap_or_default() });
             }
             None => {
-                template.push_str(" id=\"_{}\"");
+                holes.push(quote! { #hydration_id.map(|id| format!(" id=\"_{id}\"")).unwrap_or_default() });
             }
         }
-        holes.push(hydration_id);
 
         set_class_attribute_ssr(cx, node, template, holes, global_class);
         set_style_attribute_ssr(cx, node, template, holes);
