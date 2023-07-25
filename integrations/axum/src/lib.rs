@@ -826,7 +826,7 @@ fn provide_contexts(
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
 /// rendering it, and includes any meta tags injected using [leptos_meta].
 ///
-/// The HTML stream is rendered using [render_to_string_async], and includes everything described in
+/// This HTML stream is rendered using [render_to_string_async], and includes everything described in
 /// the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
