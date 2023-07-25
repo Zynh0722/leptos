@@ -823,7 +823,7 @@ fn provide_contexts(
 /// to route it using [leptos_router], asynchronously rendering an HTML page after all
 /// `async` [Resource](leptos::Resource)s have loaded.
 ///
-/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
+/// This provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
 /// rendering it, and includes any meta tags injected using [leptos_meta].
 ///
 /// The HTML stream is rendered using [render_to_string_async], and includes everything described in
